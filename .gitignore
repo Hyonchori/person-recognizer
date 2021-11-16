@@ -28,6 +28,7 @@ runs/*
 data/*
 weights/*
 yolov5/runs/*
+!deep-efficient-person-reid/assets/*
 !data/hyps/*
 !data/images/zidane.jpg
 !data/images/bus.jpg
