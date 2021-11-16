@@ -6,3 +6,4 @@ pip install pyyaml
 pip install tqdm
 pip install matplotlib
 pip install seaborn
+pip install easydict
