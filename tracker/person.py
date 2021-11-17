@@ -10,7 +10,8 @@ FILE = Path(__file__).resolve()
 ROOT = FILE.parents[1]
 if str(ROOT) not in sys.path:
     sys.path.append(os.path.join(str(ROOT)))
-sys.path.append(os.path.join(str(ROOT), "yolov5"))
+if not os.path.join(str(ROOT), "yolov5") in sys.path:
+    sys.path.append(os.path.join(str(ROOT), "yolov5"))
 from yolov5.utils.general import xyxy2xywh
 
 

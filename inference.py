@@ -24,9 +24,11 @@ from yolov5.utils.general import (LOGGER, check_file, check_img_size, check_imsh
 from yolov5.utils.plots import Annotator, colors, save_one_box
 from yolov5.utils.torch_utils import select_device, time_sync
 
-FILE = Path(__file__).absolute()
 sys.path.append(os.path.join(FILE.parents[0].as_posix(), "tracker"))
 from tracker.person import Person
+
+sys.path.append(os.path.join(FILE.parents[0].as_posix(), "deep_efficient_person_reid", "dertorch"))
+from deep_efficient_person_reid.dertorch.nets.nn import Backbone
 
 
 
@@ -39,6 +41,10 @@ def run(opt):
     yolo_max_det = opt.yolo_max_det
     yolo_target_clss = opt.yolo_target_clss
     yolo_face_mosaic = opt.yolo_face_mosaic
+
+    # Load argumements of EfficientNet2(feature extractor)
+    effnet_weights = opt.effnet_weights
+    effnet_imgsz = opt.effnet_imgsz
 
     # Load general arguments
     source = opt.source
@@ -60,9 +66,18 @@ def run(opt):
         save_dir.mkdir(parents=True, exist_ok=True)
 
     # Load YOLOv5 model
-    model = DetectMultiBackend(yolo_weights, device=device, dnn=False)
-    stride, names, pt, jit, onnx = model.stride, model.names, model.pt, model.jit, model.onnx
+    yolo_model = DetectMultiBackend(yolo_weights, device=device, dnn=False)
+    stride, names, pt, jit, onnx = yolo_model.stride, yolo_model.names, yolo_model.pt, yolo_model.jit, yolo_model.onnx
     yolo_imgsz = check_img_size(yolo_imgsz, s=stride)
+
+    # Load EfficientNet2 model
+    effnet_model = Backbone(num_classes=255, model_name='efficientnet_v2').to(device)
+    effnet_model.load_param(effnet_weights)
+    effnet_model.eval()
+    effnet_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
 
     # DataLoader
     is_file = Path(source).suffix[1:] in (IMG_FORMATS + VID_FORMATS)
@@ -81,7 +96,8 @@ def run(opt):
 
     # Initial inference
     if pt and device.type != "cpu":
-        model(torch.zeros(1, 3, *yolo_imgsz).to(device).type_as(next(model.model.parameters())))
+        yolo_model(torch.zeros(1, 3, *yolo_imgsz).to(device).type_as(next(yolo_model.model.parameters())))
+        effnet_model(torch.zeros(1, 3, *effnet_imgsz).to(device).type_as(next(effnet_model.parameters())))
 
     # Run inference
     dt, seen = [0., 0., 0.], 0
@@ -98,7 +114,7 @@ def run(opt):
 
         # YOLOv5 inference
         if use_model["yolov5"]:
-            yolo_pred = model(im, augment=False, visualize=False)
+            yolo_pred = yolo_model(im, augment=False, visualize=False)
             t3 = time_sync()
             dt[1] += t3 - t2
 
@@ -123,11 +139,19 @@ def run(opt):
             if len(det) > 0:
                 det[:, :4] = scale_coords(im.shape[2:], det[:, :4], imv.shape).round()
 
+                effnet_input = []
                 for box in det:
                     if use_model["tracker"]:
                         if box[-1] == 0:
                             pass
                             tmp_person = Person(im0, box[:4])
+                            #tmp_person_img = effnet_transform(im0[int(box[1]): int(box[3]), int(box[0]): int(box[2])])
+                            #effnet_pred = effnet_model(tmp_person_img[None].to(device))
+                            tmp_ref = im0[int(box[1]): int(box[3]), int(box[0]): int(box[2])]
+                            tmp = cv2.resize(tmp_ref, dsize=[effnet_imgsz[1], effnet_imgsz[0]])
+                            tmp = effnet_transform(tmp)[None]
+                            effnet_input.append(tmp)
+
 
                     if yolo_face_mosaic:
                         if box[-1] == 1 or box[-1] == 2:  # cls 1: unsure head / 2: head(face)
@@ -137,6 +161,14 @@ def run(opt):
                             head = cv2.resize(head_ref, dsize=(10, 10))
                             head = cv2.resize(head, head_ref.shape[:2][::-1], interpolation=cv2.INTER_AREA)
                             imv[int(box[1]): int(box[3]), int(box[0]): int(box[2])] = head
+
+
+                if effnet_input:
+                    effnet_input = torch.cat(effnet_input).to(device)
+                    print(effnet_input.shape)
+                    effnet_pred = effnet_model(effnet_input)
+                    print(effnet_pred.shape)
+
 
 
 
@@ -149,6 +181,7 @@ def run(opt):
                 for box in box_iter:
                     xyxy = box[:4]
                     conf = box[4]
+                    print(xyxy, conf)
                     cls = int(box[-1])
 
 
@@ -158,7 +191,9 @@ def run(opt):
                         label = None if hide_labels else (names[cls] if hide_conf else f'{names[cls]} {conf:.2f}')
                         annotator.box_label(xyxy, label, color=colors(id, True))
 
-            LOGGER.info(f"{s}Done. ({t3 - t2:.3f}s)")
+
+            t4 = time_sync()
+            print(f"{s}Done. ({t4 - t2:.3f}s)")
 
             # Visualize results
             if any(show_model.values()):
@@ -198,7 +233,7 @@ def parse_opt():
     parser = argparse.ArgumentParser()
 
     # Arguments for YOLOv5(main person detector), cls 0: person / 1: unsure head / 2: head(face)
-    yolo_weights = "weights/yolov5/yolov5l_crowdhuman_v4.pt"
+    yolo_weights = f"{FILE.parents[0]}/weights/yolov5/yolov5l_crowdhuman_v4.pt"
     parser.add_argument("--yolo-weights", nargs="+", type=str, default=yolo_weights)
     parser.add_argument("--yolo-imgsz", "--yolo-img-size",  type=int, default=[640])
     parser.add_argument("--yolo-conf-thr", type=float, default=0.5)
@@ -206,6 +241,12 @@ def parse_opt():
     parser.add_argument("--yolo-max-det", type=int, default=300)
     parser.add_argument("--yolo-target-clss", nargs="+", default=None)  # [0, 1, 2, ...]
     parser.add_argument("--yolo-face-mosaic", default=True)  # apply mosaic to unsure_head and head
+
+    # Arguments for EfficientNet2(feature extractor for re-identification)
+    effnet_weights = f"{FILE.parents[0]}/weights/efficientnet2/efficientnet_v2_model_300.pth"
+    parser.add_argument("--effnet-weights", type=str, default=effnet_weights)
+    parser.add_argument("--effnet-imgsz", "--effnet-img-size", type=int, default=[256, 128])
+
 
     # General arguments
     source = "rtsp://datonai:datonai@172.30.1.49:554/stream1"
@@ -217,7 +258,7 @@ def parse_opt():
     parser.add_argument("--run-name", default="exp")
     parser.add_argument("--is-video-frames", type=bool, default=True)  # use when process images from video
     parser.add_argument("--show-cls", type=int, default=[0])  # [0, 1, 2, ...]
-    parser.add_argument("--save-vid", type=bool, default=True)
+    parser.add_argument("--save-vid", type=bool, default=False)
     parser.add_argument("--hide-labels", type=bool, default=False)
     parser.add_argument("--hide-conf", type=bool, default=False)
     parser.add_argument("--use-model", type=dict,
