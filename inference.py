@@ -95,6 +95,9 @@ def run(opt):
                       device=device,
                       img_size=effnet_imgsz)
 
+    tracker.plot_pca()
+    sys.exit()
+
     # DataLoader
     is_file = Path(source).suffix[1:] in (IMG_FORMATS + VID_FORMATS)
     is_url = source.lower().startswith(("rtsp://", "rtmp://", "http://", "https://"))
@@ -153,14 +156,10 @@ def run(opt):
                 for box in det:
                     if use_model["tracker"]:
                         if box[-1] == 0:
-                            pass
-                            #tmp_person_img = effnet_transform(im0[int(box[1]): int(box[3]), int(box[0]): int(box[2])])
-                            #effnet_pred = effnet_model(tmp_person_img[None].to(device))
                             tmp_ref = im0[int(box[1]): int(box[3]), int(box[0]): int(box[2])]
-                            tmp = cv2.resize(tmp_ref, dsize=[effnet_imgsz[1], effnet_imgsz[0]])
+                            tmp = cv2.resize(tmp_ref, dsize=[effnet_imgsz[0], effnet_imgsz[1]])
                             tmp = effnet_transform(tmp)[None]
                             effnet_input.append(tmp)
-
 
                     if yolo_face_mosaic:
                         if box[-1] == 1 or box[-1] == 2:  # cls 1: unsure head / 2: head(face)
@@ -178,15 +177,18 @@ def run(opt):
                             yolo_save_count = 0
 
 
-                if effnet_input:
+                '''if effnet_input:
                     effnet_input = torch.cat(effnet_input).to(device)
                     effnet_pred = effnet_model(effnet_input)
 
-                    tracker.cal_cs(effnet_pred)
+                    #tracker.cal_cosine_similarity(effnet_pred)
+                    for feat in effnet_pred:
+                        print(f"pre {feat}")
+                        tracker.cal_cosine_similarity2(feat)'''
 
 
 
-
+                print("")
                 box_show = show_model["yolov5"]
                 if show_model["yolov5"]:
                     box_iter = det
@@ -201,6 +203,16 @@ def run(opt):
                     if box_show and cls in show_cls:
                         id = cls
                         label = None if hide_labels else (names[cls] if hide_conf else f'{names[cls]} {conf:.2f}')
+
+
+                        if cls == 0:
+                            tmp_ref = im0[int(box[1]): int(box[3]), int(box[0]): int(box[2])]
+                            tmp = cv2.resize(tmp_ref, dsize=[effnet_imgsz[0], effnet_imgsz[1]])
+                            tmp = effnet_transform(tmp)[None].to(device)
+                            tmp_pred = effnet_model(tmp)[0]
+                            id = tracker.cal_cosine_similarity2(tmp_pred)
+                            label = str(id)
+
                         annotator.box_label(xyxy, label, color=colors(id, True))
 
 
