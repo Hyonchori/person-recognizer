@@ -138,6 +138,7 @@ def run(opt):
             # NMS
             yolo_pred = non_max_suppression(yolo_pred, yolo_conf_thr, yolo_iou_thr, yolo_target_clss,
                                             agnostic=False, max_det=yolo_max_det)
+            print(yolo_pred)
         else:
             yolo_pred = []
 
@@ -261,9 +262,10 @@ def parse_opt():
 
     # Arguments for YOLOv5(main person detector), cls 0: person / 1: unsure head / 2: head(face)
     yolo_weights = f"{FILE.parents[0]}/weights/yolov5/yolov5l_crowdhuman_v7.pt"
+    yolo_weights = f"{FILE.parents[0]}/weights/yolov5/firedetector_v1.pt"
     parser.add_argument("--yolo-weights", nargs="+", type=str, default=yolo_weights)
     parser.add_argument("--yolo-imgsz", "--yolo-img-size",  type=int, default=[640])
-    parser.add_argument("--yolo-conf-thr", type=float, default=0.5)
+    parser.add_argument("--yolo-conf-thr", type=float, default=0.3)
     parser.add_argument("--yolo-iou-thr", type=float, default=0.6)
     parser.add_argument("--yolo-max-det", type=int, default=300)
     parser.add_argument("--yolo-target-clss", nargs="+", default=None)  # [0, 1, 2, ...]
@@ -283,7 +285,10 @@ def parse_opt():
 
     # General arguments
     source = "rtsp://datonai:datonai@172.30.1.49:554/stream1"
-    #source = "/media/daton/D6A88B27A88B0569/dataset/mot/MOT17/train/MOT17-02-DPM/img1"
+    source = "/media/daton/D6A88B27A88B0569/dataset/mot/MOT17/train/MOT17-02-DPM/img1"
+    #source = "https://www.youtube.com/watch?v=668J-hyfJ0E"
+    source = "https://www.youtube.com/watch?v=WRp0PoxQqoQ"
+    source = "/media/daton/D6A88B27A88B0569/dataset/화재_발생_예측_영상/Validation/[원천]화재씬2/S3-N0819MF06491.jpg"
     #source = "0"
     parser.add_argument("--source", type=str, default=source)
     parser.add_argument("--device", default="")
