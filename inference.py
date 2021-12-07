@@ -30,6 +30,8 @@ from tracker.re_identifier import Tracker
 sys.path.append(os.path.join(FILE.parents[0].as_posix(), "deep_efficient_person_reid", "dertorch"))
 from deep_efficient_person_reid.dertorch.nets.nn import Backbone
 
+from deep_sort_pytorch.utils.parser import get_config as get_deepsort_cfg
+from deep_sort_pytorch.deep_sort import DeepSort
 
 
 def run(opt):
@@ -96,7 +98,7 @@ def run(opt):
                       img_size=effnet_imgsz)
 
     tracker.plot_pca()
-    sys.exit()
+    #sys.exit()
 
     # DataLoader
     is_file = Path(source).suffix[1:] in (IMG_FORMATS + VID_FORMATS)
@@ -205,13 +207,13 @@ def run(opt):
                         label = None if hide_labels else (names[cls] if hide_conf else f'{names[cls]} {conf:.2f}')
 
 
-                        if cls == 0:
+                        '''if cls == 0:
                             tmp_ref = im0[int(box[1]): int(box[3]), int(box[0]): int(box[2])]
                             tmp = cv2.resize(tmp_ref, dsize=[effnet_imgsz[0], effnet_imgsz[1]])
                             tmp = effnet_transform(tmp)[None].to(device)
                             tmp_pred = effnet_model(tmp)[0]
                             id = tracker.cal_cosine_similarity2(tmp_pred)
-                            label = str(id)
+                            label = str(id)'''
 
                         annotator.box_label(xyxy, label, color=colors(id, True))
 
@@ -258,7 +260,7 @@ def parse_opt():
     parser = argparse.ArgumentParser()
 
     # Arguments for YOLOv5(main person detector), cls 0: person / 1: unsure head / 2: head(face)
-    yolo_weights = f"{FILE.parents[0]}/weights/yolov5/yolov5l_crowdhuman_v4.pt"
+    yolo_weights = f"{FILE.parents[0]}/weights/yolov5/yolov5l_crowdhuman_v7.pt"
     parser.add_argument("--yolo-weights", nargs="+", type=str, default=yolo_weights)
     parser.add_argument("--yolo-imgsz", "--yolo-img-size",  type=int, default=[640])
     parser.add_argument("--yolo-conf-thr", type=float, default=0.5)
@@ -294,7 +296,7 @@ def parse_opt():
     parser.add_argument("--hide-conf", type=bool, default=False)
     parser.add_argument("--use-model", type=dict,
                         default={"yolov5": True,
-                                 "tracker": True})
+                                 "tracker": False})
     parser.add_argument("--show-model", type=dict,
                         default={"yolov5": True,
                                  "tracker": False})

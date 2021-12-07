@@ -21,3 +21,13 @@ cos = nn.CosineSimilarity(dim=1, eps=1e-6)
 @torch.no_grad()
 def cosine_similarity2(qf, gf):
     return cos(qf, gf)
+
+
+@torch.no_grad()
+def euclidean_distance(qf, gf):
+    m = qf.shape[0]
+    n = gf.shape[0]
+    dist_mat = torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, n) + \
+        torch.pow(gf, 2).sum(dim=1, keepdim=True).expand(n, m).t()
+    dist_mat.addmm_(1, -2, qf, gf.t())
+    return dist_mat.cpu().numpy()

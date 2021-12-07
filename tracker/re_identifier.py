@@ -8,7 +8,7 @@ import numpy as np
 import cv2
 
 from person import Person
-from tracker_utils.metrics import cosine_similarity, cosine_similarity2
+from tracker_utils.metrics import cosine_similarity, cosine_similarity2, euclidean_distance
 
 
 class Tracker():
@@ -54,11 +54,11 @@ class Tracker():
         for person_id, person in self.person_queries.items():
             input_feat_norm = input_feat / torch.linalg.norm(input_feat)
             query_feat_norm = person.query_feat_batch / torch.linalg.norm(person.query_feat_batch)
-            dist_mat = cosine_similarity2(input_feat_norm[None], query_feat_norm).cpu().numpy()
-            indices = np.argsort(dist_mat)[::-1][..., :self.top_k]
-            top_dist = np.sort(dist_mat)[::-1][..., :self.top_k]
+            dist_mat = euclidean_distance(input_feat_norm[None], query_feat_norm)
+            indices = np.argsort(dist_mat)[..., :self.top_k][0]
+            top_dist = np.sort(dist_mat)[..., :self.top_k][0]
             top_mean = np.mean(top_dist)
-            print(top_mean)
+            print(dist_mat)
             if top_mean >= self.cs_thr:
                 cv2.imshow(f"matched with {person_id}",
                            person.query_img_batch[indices[0]].numpy().transpose(1, 2, 0)[..., ::-1])
