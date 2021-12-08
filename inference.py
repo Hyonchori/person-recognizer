@@ -53,6 +53,10 @@ def run(opt):
     # Load arguments of tracker(custom re-identifier)
     tracker_queries = opt.tracker_queries
 
+    # Load arguments of DeepSORT(main tracker)
+    deepsort_cfg = get_deepsort_cfg()
+    deepsort_cfg.merge_from_file(opt.deepsort_cfg)
+    deepsort_cfg["DEEPSORT"]["REID_CKPT"] = opt.deepsort_weights
 
     # Load general arguments
     source = opt.source
@@ -65,7 +69,7 @@ def run(opt):
     hide_labels = opt.hide_labels
     hide_conf = opt.hide_conf
     use_model = opt.use_model
-    show_model = opt.show_model
+    show_model = {key: use_model[key] & opt.show_model[key] for key in use_model}
 
     # Initialize setting
     device = select_device(device)
@@ -114,6 +118,16 @@ def run(opt):
         dataset = LoadImages(source, img_size=yolo_imgsz, stride=stride, auto=pt and not jit)
         bs = 1
     vid_path, vid_writer = [None] * bs, [None] * bs
+
+    # Load DeepSORT model
+    deepsort_model_list = [DeepSort(deepsort_cfg.DEEPSORT.REID_CKPT,
+                                    max_dist=deepsort_cfg.DEEPSORT.MAX_DIST,
+                                    min_confidence=deepsort_cfg.DEEPSORT.MIN_CONFIDENCE,
+                                    max_iou_distance=deepsort_cfg.DEEPSORT.MAX_IOU_DISTANCE,
+                                    max_age=deepsort_cfg.DEEPSORT.MAX_AGE,
+                                    n_init=deepsort_cfg.DEEPSORT.N_INIT,
+                                    nn_budget=deepsort_cfg.DEEPSORT.NN_BUDGET,
+                                    use_cuda=True) for _ in range(bs)]
 
     # Initial inference
     if pt and device.type != "cpu":
@@ -179,32 +193,31 @@ def run(opt):
                                          BGR=True)
                             yolo_save_count = 0
 
-
-                '''if effnet_input:
-                    effnet_input = torch.cat(effnet_input).to(device)
-                    effnet_pred = effnet_model(effnet_input)
-
-                    #tracker.cal_cosine_similarity(effnet_pred)
-                    for feat in effnet_pred:
-                        print(f"pre {feat}")
-                        tracker.cal_cosine_similarity2(feat)'''
-
-
+                if use_model["deepsort"]:
+                    clss = det[:, -1]
+                    person_idx = clss == 0
+                    xywhs = xyxy2xywh(det[:, :4])[person_idx]
+                    confs = det[:, 4][person_idx]
+                    clss = clss[person_idx]
+                    deepsort_pred = deepsort_model_list[i].update(xywhs.cpu(), confs.cpu(), clss.cpu(), im0)
 
                 print("")
-                box_show = show_model["yolov5"]
-                if show_model["yolov5"]:
+                box_show = show_model["yolov5"] or show_model["deepsort"]
+                if show_model["yolov5"] and not show_model["deepsort"]:
                     box_iter = det
+                elif show_model["deepsort"]:
+                    box_iter = deepsort_pred
                 else:
                     box_iter = det
+                print(box_iter)
 
                 for box in box_iter:
                     xyxy = box[:4]
                     conf = box[4]
-                    cls = int(box[-1])
+                    cls = int(box[5])
 
                     if box_show and cls in show_cls:
-                        id = cls
+                        id = cls if not use_model["deepsort"] else box[-1]
                         label = None if hide_labels else (names[cls] if hide_conf else f'{names[cls]} {conf:.2f}')
 
 
@@ -217,7 +230,9 @@ def run(opt):
                             label = str(id)'''
 
                         annotator.box_label(xyxy, label, color=colors(id, True))
-
+            else:
+                if use_model["deepsort"]:
+                    deepsort_model_list[i].increment_ages()
 
             tf = time_sync()
             print(f"{s}Done. ({tf - t1:.3f}s)")
@@ -262,10 +277,10 @@ def parse_opt():
 
     # Arguments for YOLOv5(main person detector), cls 0: person / 1: unsure head / 2: head(face)
     yolo_weights = f"{FILE.parents[0]}/weights/yolov5/yolov5l_crowdhuman_v7.pt"
-    yolo_weights = f"{FILE.parents[0]}/weights/yolov5/firedetector_v1.pt"
+    #yolo_weights = f"{FILE.parents[0]}/weights/yolov5/firedetector_v1.pt"
     parser.add_argument("--yolo-weights", nargs="+", type=str, default=yolo_weights)
     parser.add_argument("--yolo-imgsz", "--yolo-img-size",  type=int, default=[640])
-    parser.add_argument("--yolo-conf-thr", type=float, default=0.3)
+    parser.add_argument("--yolo-conf-thr", type=float, default=0.5)
     parser.add_argument("--yolo-iou-thr", type=float, default=0.6)
     parser.add_argument("--yolo-max-det", type=int, default=300)
     parser.add_argument("--yolo-target-clss", nargs="+", default=None)  # [0, 1, 2, ...]
@@ -282,13 +297,17 @@ def parse_opt():
     tracker_queries = f"{FILE.parents[0]}/queries"
     parser.add_argument("--tracker-queries", type=str, default=tracker_queries)
 
+    # Arguments for DeepSORT(main tracker)
+    parser.add_argument("--deepsort-cfg", type=str, default="deep_sort_pytorch/configs/deep_sort.yaml")
+    parser.add_argument("--deepsort-weights", type=str, default="weights/deep_sort/deep/checkpoint/ckpt.t7")
 
     # General arguments
     source = "rtsp://datonai:datonai@172.30.1.49:554/stream1"
-    source = "/media/daton/D6A88B27A88B0569/dataset/mot/MOT17/train/MOT17-02-DPM/img1"
+    #source = "/media/daton/D6A88B27A88B0569/dataset/mot/MOT17/train/MOT17-02-DPM/img1"
     #source = "https://www.youtube.com/watch?v=668J-hyfJ0E"
-    source = "https://www.youtube.com/watch?v=WRp0PoxQqoQ"
-    source = "/media/daton/D6A88B27A88B0569/dataset/화재_발생_예측_영상/Validation/[원천]화재씬2/S3-N0819MF06491.jpg"
+    #source = "https://www.youtube.com/watch?v=WRp0PoxQqoQ"
+    #source = "/media/daton/D6A88B27A88B0569/dataset/화재_발생_예측_영상/Validation/[원천]화재씬2/S3-N0819MF06491.jpg"
+    #source = "https://www.youtube.com/watch?v=kR5h18Jdcyc"
     #source = "0"
     parser.add_argument("--source", type=str, default=source)
     parser.add_argument("--device", default="")
@@ -301,9 +320,11 @@ def parse_opt():
     parser.add_argument("--hide-conf", type=bool, default=False)
     parser.add_argument("--use-model", type=dict,
                         default={"yolov5": True,
+                                 "deepsort": True,
                                  "tracker": False})
     parser.add_argument("--show-model", type=dict,
                         default={"yolov5": True,
+                                 "deepsort": True,
                                  "tracker": False})
 
     opt = parser.parse_args()

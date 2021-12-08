@@ -46,12 +46,17 @@ class DeepSort(object):
             if use_yolo_preds:
                 det = track.get_yolo_pred()
                 x1, y1, x2, y2 = self._tlwh_to_xyxy(det.tlwh)
+                conf = det.confidence
             else:
                 box = track.to_tlwh()
                 x1, y1, x2, y2 = self._tlwh_to_xyxy(box)
+                conf = None
             track_id = track.track_id
             class_id = track.class_id
-            outputs.append(np.array([x1, y1, x2, y2, track_id, class_id], dtype=np.int))
+            if conf is not None:
+                outputs.append(np.array([int(x1), int(y1), int(x2), int(y2), conf, int(class_id), int(track_id),]))
+            else:
+                outputs.append(np.array([x1, y1, x2, y2, track_id, class_id], dtype=np.int))
         if len(outputs) > 0:
             outputs = np.stack(outputs, axis=0)
         return outputs
