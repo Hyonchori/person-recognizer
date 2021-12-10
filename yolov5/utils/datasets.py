@@ -163,12 +163,14 @@ class LoadImages:
         if '*' in p:
             files = sorted(glob.glob(p, recursive=True))  # glob
         elif os.path.isdir(p):
-            files = sorted(glob.glob(os.path.join(p, '*.*')))  # dir
+            files = [os.path.join(p, x) for x in sorted(os.listdir(p)) if os.path.isfile(os.path.join(p, x))]
+            #files = sorted(glob.glob(os.path.join(p, '*.*')))  # dir
         elif os.path.isfile(p):
             files = [p]  # files
         else:
             raise Exception(f'ERROR: {p} does not exist')
-
+        print(p)
+        print(files)
         images = [x for x in files if x.split('.')[-1].lower() in IMG_FORMATS]
         videos = [x for x in files if x.split('.')[-1].lower() in VID_FORMATS]
         ni, nv = len(images), len(videos)
