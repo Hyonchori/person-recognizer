@@ -28,6 +28,7 @@ runs/*
 data/*
 queries/*
 weights/*
+youtube_videos/*
 yolov5/runs/*
 !deep-efficient-person-reid/assets/*
 !data/hyps/*

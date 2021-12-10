@@ -72,7 +72,6 @@ def run(opt):
         dataset = LoadStreams(source, img_size=yolo_imgsz, stride=stride, auto=pt and not jit)
         bs = len(dataset)
     else:
-        import glob
         dataset = LoadImages(source, img_size=yolo_imgsz, stride=stride, auto=pt and not jit)
         bs = 1
     vid_path, vid_writer = [None] * bs, [None] * bs
@@ -170,31 +169,33 @@ def parse_opt():
 
     # Arguments for YOLOv5(main person detector)
     # "black smoke", "gray smoke", "white smoke", "fire", "cloud", "fog", "light", "sun light", "swing1", "swing2"
-    yolo_weights = f"{FILE.parents[0]}/weights/yolov5/fire_v1.pt"
+    yolo_weights = f"{FILE.parents[0]}/weights/yolov5/fire_v2.pt"
     parser.add_argument("--yolo-weights", nargs="+", type=str, default=yolo_weights)
     parser.add_argument("--yolo-imgsz", "--yolo-img-size",  type=int, default=[640])
-    parser.add_argument("--yolo-conf-thr", type=float, default=0.5)
-    parser.add_argument("--yolo-iou-thr", type=float, default=0.7)
+    parser.add_argument("--yolo-conf-thr", type=float, default=0.25)
+    parser.add_argument("--yolo-iou-thr", type=float, default=0.5)
     parser.add_argument("--yolo-max-det", type=int, default=300)
     parser.add_argument("--yolo-target-clss", nargs="+", default=None)  # [0, 1, 2, ...]
     parser.add_argument("--yolo-save-crop", default=False)
     parser.add_argument("--yolo-save-interval", type=int, default=5)
-    parser.add_argument("--yolo-save-txt", type=bool, default=True)
+    parser.add_argument("--yolo-save-txt", type=bool, default=False)
 
     # General arguments
     source = "rtsp://datonai:datonai@172.30.1.49:554/stream1"
-    source = "/media/daton/D6A88B27A88B0569/dataset/fire detection/total"
+    source = "https://www.youtube.com/watch?v=WRp0PoxQqoQ"
+    source = "youtube_videos/exp2"
+    #source = "/media/daton/D6A88B27A88B0569/dataset/fire detection/total"
     #source = "0"
     parser.add_argument("--source", type=str, default=source)
     parser.add_argument("--device", default="")
     parser.add_argument("--dir-path", default="runs/fire_detect")
     parser.add_argument("--run-name", default="exp")
-    parser.add_argument("--is-video-frames", type=bool, default=False)  # use when process images from video
-    parser.add_argument("--show-vid", type=bool, default=False)
+    parser.add_argument("--is-video-frames", type=bool, default=True)  # use when process images from video
+    parser.add_argument("--show-vid", type=bool, default=True)
     parser.add_argument("--show-cls", type=int, default=[x for x in range(4)])  # [0, 1, 2, ...]
-    parser.add_argument("--save-vid", type=bool, default=False)
+    parser.add_argument("--save-vid", type=bool, default=True)
     parser.add_argument("--hide-labels", type=bool, default=False)
-    parser.add_argument("--hide-conf", type=bool, default=False)
+    parser.add_argument("--hide-conf", type=bool, default=True)
 
     opt = parser.parse_args()
     opt.yolo_imgsz *= 2 if len(opt.yolo_imgsz) == 1 else 1
