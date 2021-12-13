@@ -14,6 +14,8 @@ from yolov5.utils.general import (LOGGER, check_file, check_img_size, check_imsh
 
 if __name__ == "__main__":
     source = "https://www.youtube.com/watch?v=WRp0PoxQqoQ"
+    source = "https://www.youtube.com/watch?v=8B4ZKk9ow-I"
+    source = "https://www.youtube.com/watch?v=WNIccic_178"
     yolo_imgsz = [640, 640]
     stride = 32
 

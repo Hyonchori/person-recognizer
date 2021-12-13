@@ -126,6 +126,8 @@ def run(opt):
                     if show_vid and cls in show_cls:
                         id = cls
                         label = None if hide_labels else (names[cls] if hide_conf else f'{id} {names[cls]} {conf:.2f}')
+                        '''label = label if conf >= 0.6 else "light"
+                        id = id if conf >= 0.6 else id + 100'''
                         annotator.box_label(xyxy, label, color=colors(id, True))
 
             tf = time_sync()
@@ -183,7 +185,7 @@ def parse_opt():
     # General arguments
     source = "rtsp://datonai:datonai@172.30.1.49:554/stream1"
     source = "https://www.youtube.com/watch?v=WRp0PoxQqoQ"
-    source = "youtube_videos/exp2"
+    source = "youtube_videos/exp3"
     #source = "/media/daton/D6A88B27A88B0569/dataset/fire detection/total"
     #source = "0"
     parser.add_argument("--source", type=str, default=source)
