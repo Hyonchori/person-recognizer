@@ -1,23 +1,28 @@
 import os
-import math
-import random
 from collections import Counter
 
 import torch
+from torch.utils.data import Subset
+from sklearn.model_selection import StratifiedShuffleSplit
 import numpy as np
-from PIL import Image
 import albumentations as at
 
 
 class MARKET1501Dataset(torch.utils.data.Dataset):
     def __init__(self,
                  root: str,
+                 img_dir: str,
                  transform: at.core.composition.Compose=None):
-        self.img_dir = os.path.join(root, "gt_bbox")
+        self.img_dir = os.path.join(root, img_dir)
         self.img_names = [x for x in os.listdir(self.img_dir) if x.endswith(".jpg")]
-        self.id_counter = Counter([int(x.split("_")[0]) for x in self.img_names])
-        self.ids = list(self.id_counter.keys())
         self.transform = transform
+
+    def get_labels(self):
+        return [int(x.split("_")[0]) for x in self.img_names]
+
+    def get_label_count(self):
+        id_counter = Counter([int(x.split("_")[0]) for x in self.img_names])
+        return id_counter
 
     def __len__(self):
         return len(self.img_names)
@@ -40,6 +45,8 @@ class MARKET1501Dataset(torch.utils.data.Dataset):
 
 
 def get_dataloader(root: str,
+                   train_dir: str,
+                   valid_dir: str,
                    img_size: (int, int)=(128, 64),
                    train_batch: int=32,
                    valid_batch: int=32):
@@ -56,20 +63,27 @@ def get_dataloader(root: str,
         at.Resize(128, 64),
         at.Normalize()
     ])
-    root_dataset = MARKET1501Dataset(root, train_transform)
-    
+    train_dataset = MARKET1501Dataset(root, train_dir, transform=train_transform)
+    valid_dataset = MARKET1501Dataset(root, valid_dir, transform=valid_transform)
     train_loader = torch.utils.data.DataLoader(
-        root_dataset,
+        train_dataset,
         batch_size=train_batch,
         shuffle=True,
     )
-    return train_loader
+    valid_loader = torch.utils.data.DataLoader(
+        valid_dataset,
+        batch_size=valid_batch,
+        shuffle=False
+    )
+    return train_loader, valid_loader
 
 
 if __name__ == "__main__":
     import cv2
 
     root = "/media/daton/D6A88B27A88B0569/dataset/market1501"
+    train_dir = "Custom_dataset/train"
+    valid_dir = "Custom_dataset/valid"
     train_transform = at.Compose([
         at.Resize(224, 112),
         at.Rotate(limit=(-20, 20)),
@@ -90,11 +104,17 @@ if __name__ == "__main__":
         pass'''
 
     # Dataloader test
-    trainloader = get_dataloader(root)
-    for img0, img, pid, img_path in trainloader:
+    train_loader, valid_loader = get_dataloader(root, train_dir, valid_dir)
+    for img0, img, pid, img_path in valid_loader:
         print("\n---")
         print(img0.shape)
         print(img.shape)
         print(pid.shape)
         print(pid)
+        for im0, im, id in zip(img0, img, pid):
+            print(id.numpy())
+            im = im.numpy().transpose(1, 2, 0)[..., ::-1]
+            cv2.imshow("im0", im0.numpy())
+            cv2.imshow("im", im)
+            cv2.waitKey(0)
         break
