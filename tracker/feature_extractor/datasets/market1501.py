@@ -3,7 +3,7 @@ from collections import Counter
 
 import torch
 from torch.utils.data import Subset
-from sklearn.model_selection import StratifiedShuffleSplit
+import cv2
 import numpy as np
 import albumentations as at
 
@@ -44,12 +44,17 @@ class MARKET1501Dataset(torch.utils.data.Dataset):
         return img0, img, pid, img_path
 
 
-def get_dataloader(root: str,
-                   train_dir: str,
-                   valid_dir: str,
-                   img_size: (int, int)=(128, 64),
-                   train_batch: int=32,
-                   valid_batch: int=32):
+root = "/media/daton/D6A88B27A88B0569/dataset/market1501"
+train_dir = "Custom_dataset/train"
+valid_dir = "Custom_dataset/valid"
+
+
+def get_dataloader(root: str = root,
+                   train_dir: str = train_dir,
+                   valid_dir: str = valid_dir,
+                   img_size: (int, int) = (128, 64),
+                   train_batch: int = 32,
+                   valid_batch: int = 32):
     train_transform = at.Compose([
         at.Resize(*img_size),
         at.Rotate(limit=(-20, 20)),
@@ -60,7 +65,7 @@ def get_dataloader(root: str,
         at.Normalize()
     ])
     valid_transform = at.Compose([
-        at.Resize(128, 64),
+        at.Resize(*img_size),
         at.Normalize()
     ])
     train_dataset = MARKET1501Dataset(root, train_dir, transform=train_transform)

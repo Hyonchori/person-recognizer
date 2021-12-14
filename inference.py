@@ -257,8 +257,6 @@ def run(opt):
         yolo_save_count += 1
 
 
-
-
 def parse_opt():
     parser = argparse.ArgumentParser()
 
@@ -290,7 +288,7 @@ def parse_opt():
 
     # General arguments
     source = "rtsp://datonai:datonai@172.30.1.49:554/stream1"
-    #source = "/media/daton/D6A88B27A88B0569/dataset/mot/MOT17/train/MOT17-02-DPM/img1"
+    source = "/media/daton/D6A88B27A88B0569/dataset/mot/MOT17/train/MOT17-04-DPM/img1"
     #source = "https://www.youtube.com/watch?v=668J-hyfJ0E"
     #source = "https://www.youtube.com/watch?v=WRp0PoxQqoQ"
     #source = "/media/daton/D6A88B27A88B0569/dataset/화재_발생_예측_영상/Validation/[원천]화재씬2/S3-N0819MF06491.jpg"
