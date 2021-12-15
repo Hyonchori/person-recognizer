@@ -60,8 +60,8 @@ def main(opt):
     compute_loss = ComputeLoss(label_smoothing=label_smoothing,
                                num_classes=num_classes,
                                last_feature_dim=last_feature_dim)
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.99, weight_decay=0.0005)
-    optimizer_center = torch.optim.AdamW(compute_loss.cnt_loss_fn.parameters(), lr=0.1, weight_decay=0.0001)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.0005)
+    optimizer_center = torch.optim.AdamW(compute_loss.cnt_loss_fn.parameters(), lr=0.003, weight_decay=0.0001)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[200, 500, 700, 900], gamma=0.5)
 
     best_loss = 100000.
@@ -173,7 +173,7 @@ def parse_opt():
     parser.add_argument("--img-size", type=int, default=[128, 64])
     parser.add_argument("--batch-size", type=int, default=144)
     parser.add_argument("--start-epoch", type=int, default=0)
-    parser.add_argument("--end-epoch", type=int, default=1000)
+    parser.add_argument("--end-epoch", type=int, default=2000)
     parser.add_argument("--label-smoothing", type=float, default=0.1)
     parser.add_argument("--eval-interval", type=int, default=100)
     parser.add_argument("--save-interval", type=int, default=100)

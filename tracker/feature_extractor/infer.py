@@ -76,11 +76,12 @@ def main(opt):
         at.Resize(*img_size),
         at.Normalize()
     ])
-    gallery_save_path = None
-    if gallery_save_path is not None:
+    if os.path.isfile(gallery_save_path):
         gallery_feats = torch.load(gallery_save_path)
         print("\n--- Load gallery feature ...")
     else:
+        gallery_feats = None
+    if gallery_feats is not None:
         gallery_feats = []
         print("\n--- Make gallery feature ...")
         time.sleep(0.5)
@@ -136,7 +137,7 @@ def visualize(img, indices, gallery_path, gallery_imgs, save_dir, save=True, ran
 def parse_opt():
     parser = argparse.ArgumentParser()
 
-    weights = f"{FILE.parents[2]}/weights/feature_extractor/exp/feature_extractor_v1_last.pt"
+    weights = f"{FILE.parents[2]}/weights/feature_extractor/exp2/feature_extractor_v1_last.pt"
     parser.add_argument("--weights", type=str, default=weights)
     parser.add_argument("--num-classes", type=str, default=1501)
     parser.add_argument("--img-size", type=int, default=[128, 64])
