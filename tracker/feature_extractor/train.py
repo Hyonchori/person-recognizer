@@ -56,13 +56,14 @@ def main(opt):
     last_feature_dim = params[-2][1].shape[0]
     model = model.to(device)
 
-    train_loader, valid_loader = get_dataloader(img_size=img_size, train_batch=batch_size)
+    train_loader, valid_loader = get_dataloader(img_size=img_size, train_batch=batch_size, valid_batch=batch_size * 2)
     compute_loss = ComputeLoss(label_smoothing=label_smoothing,
                                num_classes=num_classes,
                                last_feature_dim=last_feature_dim)
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.0005)
     optimizer_center = torch.optim.AdamW(compute_loss.cnt_loss_fn.parameters(), lr=0.003, weight_decay=0.0001)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[200, 500, 700, 900], gamma=0.5)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+                                                     milestones=[200, 500, 700, 900, 1100, 1300, 1500], gamma=0.5)
 
     best_loss = 100000.
 
