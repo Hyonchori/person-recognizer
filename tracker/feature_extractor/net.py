@@ -5,29 +5,6 @@ from net_blocks import initialize_weights, Conv, Residual
 from utils import model_info
 
 
-def weights_init_kaiming(m):
-    classname = m.__class__.__name__
-    if classname.find('Linear') != -1:
-        nn.init.kaiming_normal_(m.weight, a=0, mode='fan_out')
-        nn.init.constant_(m.bias, 0.0)
-    elif classname.find('Conv') != -1:
-        nn.init.kaiming_normal_(m.weight, a=0, mode='fan_in')
-        if m.bias is not None:
-            nn.init.constant_(m.bias, 0.0)
-    elif classname.find('BatchNorm') != -1:
-        if m.affine:
-            nn.init.constant_(m.weight, 1.0)
-            nn.init.constant_(m.bias, 0.0)
-
-
-def weights_init_classifier(m):
-    classname = m.__class__.__name__
-    if classname.find('Linear') != -1:
-        nn.init.normal_(m.weight, std=0.001)
-        if m.bias:
-            nn.init.constant_(m.bias, 0.0)
-
-
 class EfficientNet(torch.nn.Module):
     """
     EfficientNetV2: Smaller Models and Faster Training
@@ -125,8 +102,6 @@ class EfficientNetClassifier(nn.Module):
             self.bottleneck = nn.BatchNorm1d(self.in_planes)
             self.bottleneck.bias.requires_grad_(False)
             self.classifier = nn.Linear(self.in_planes, self.num_classes, bias=False)
-            self.bottleneck.apply(weights_init_kaiming)
-            self.classifier.apply(weights_init_classifier)
 
         if info:
             model_info(self.base, verbose=True, input_shape=(3, 224, 224), batch_size=32)
@@ -135,15 +110,8 @@ class EfficientNetClassifier(nn.Module):
         global_feat = self.gap(self.base(x))
         global_feat = global_feat.view(global_feat.shape[0], -1)
         feat = self.bottleneck(global_feat) if self.neck == "bnneck" else global_feat
-
-        if self.training:
-            cls_score = self.classifier(feat)
-            return cls_score, global_feat
-        else:
-            if self.nect_feat == "after":
-                return feat
-            else:
-                return global_feat
+        cls_score = self.classifier(feat)
+        return cls_score, global_feat
 
     def load_param(self, trained_path):
         param_dict = torch.load(trained_path).state_dict()

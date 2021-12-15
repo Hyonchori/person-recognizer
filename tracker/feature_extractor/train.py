@@ -1,5 +1,7 @@
 import argparse
+import copy
 import os
+import csv
 import time
 import warnings
 from pathlib import Path
@@ -10,11 +12,14 @@ from tqdm import tqdm
 
 from net import EfficientNetClassifier
 from datasets.market1501 import get_dataloader
+from losses import ComputeLoss
 from utils import increment_path
 
 
 warnings.filterwarnings("ignore")
 FILE = Path(__file__).absolute()
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
 def main(opt):
@@ -23,6 +28,7 @@ def main(opt):
     img_size = opt.img_size
     start_epoch = opt.start_epoch
     end_epoch = opt.end_epoch
+    batch_size = opt.batch_size
     label_smoothing = opt.label_smoothing
     eval_interval = opt.eval_interval
     save_interval = opt.save_interval
@@ -46,37 +52,116 @@ def main(opt):
     else:
         print("Model is initialized!")
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    params = list(model.named_parameters())
+    last_feature_dim = params[-2][1].shape[0]
     model = model.to(device)
 
-    train_loader, valid_loader = get_dataloader(img_size=img_size)
+    train_loader, valid_loader = get_dataloader(img_size=img_size, train_batch=batch_size)
+    compute_loss = ComputeLoss(label_smoothing=label_smoothing,
+                               num_classes=num_classes,
+                               last_feature_dim=last_feature_dim)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.99, weight_decay=0.0005)
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.1, total_steps=1002, steps_per_epoch=1000)
+    optimizer_center = torch.optim.AdamW(compute_loss.cnt_loss_fn.parameters(), lr=0.1, weight_decay=0.0001)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[200, 500, 700, 900], gamma=0.5)
 
-    tmp_list = []
+    best_loss = 100000.
+
     for e in range(start_epoch, end_epoch + 1):
         print(f"\n###############  Epoch: {e:4} / {end_epoch:4}  ################")
 
-        #time.sleep(0.5)
-        train_loss = train(model, optimizer, train_loader, device)
-        #time.sleep(0.5)
+        time.sleep(0.5)
+        train_loss, train_acc = train(model, compute_loss, optimizer, optimizer_center, train_loader, device)
+        time.sleep(0.5)
+        print(f"train loss: \n\tcls: {train_loss[0]:.4f}, triplet: {train_loss[1]:.4f}, center: {train_loss[2]:.4f}, total: {sum(train_loss):.4f}")
+        print(f"\ttrain accuracy: {train_acc:.6f}")
+
+        if e % eval_interval == 0:
+            time.sleep(0.5)
+            valid_loss, valid_acc = evaluate(model, compute_loss, valid_loader, device)
+            time.sleep(0.5)
+            print(f"valid loss: \n\tcls: {valid_loss[0]:.4f}, triplet: {valid_loss[1]:.4f}, center: {valid_loss[2]:.4f}, total: {sum(valid_loss):.4f}")
+            print(f"\tvalid accuracy: {valid_acc:.6f}")
 
         if e % save_interval == 0 or e == end_epoch:
             torch.save(model.state_dict(), last_save_path)
-        break
+
+        if os.path.isfile(log_save_path):
+            with open(log_save_path, "r") as f:
+                reader = csv.reader(f)
+                logs = list(reader)
+                logs.append([e] +
+                            [x for x in train_loss] +
+                            [x for x in valid_loss] +
+                            [optimizer.param_groups[0]["lr"]])
+            with open(log_save_path, "w") as f:
+                writer = csv.writer(f)
+                for log in logs:
+                    writer.writerow(log)
+        else:
+            with open(log_save_path, "w") as f:
+                writer = csv.writer(f)
+                writer.writerow([e] +
+                                [x for x in train_loss] +
+                                [x for x in valid_loss] +
+                                [optimizer.param_groups[0]["lr"]])
+
+        if sum(valid_loss) < best_loss:
+            best_loss = sum(valid_loss)
+            best_model_wts = copy.deepcopy(model.state_dict())
+            torch.save(best_model_wts, best_save_path)
+
+        scheduler.step()
 
 
-def train(model, optimizer, dataloader, device):
+def train(model, compute_loss, optimizer, optimizer_center, dataloader, device):
     model.train()
     mloss = np.array([0., 0., 0.])
     macc = 0.
 
-    #for img0, img, pid, img_path in tqdm(dataloader):
-    for img0, img, pid, img_path in dataloader:
+    for img0, img, pid, img_path in tqdm(dataloader):
         img = img.to(device)
         pid = pid.to(device)
 
         optimizer.zero_grad()
+        optimizer_center.zero_grad()
         score, feat = model(img)
+        losses = compute_loss(score, pid, feat)
+        for i in range(len(losses)):
+            mloss[i] += losses[i].item()
+        loss = sum(losses)
+        loss.backward()
+        optimizer.step()
+        optimizer_center.step()
+
+        acc = (score.max(1)[1] == pid).float().mean()
+        macc += acc.item()
+
+    mloss /= len(dataloader)
+    macc /= len(dataloader)
+    return mloss, macc
+
+
+@torch.no_grad()
+def evaluate(model, compute_loss, dataloader, device):
+    model.eval()
+    mloss = np.array([0., 0., 0.])
+    macc = 0.
+
+    for img0, img, pid, img_path in tqdm(dataloader):
+        img = img.to(device)
+        pid = pid.to(device)
+
+        score, feat = model(img)
+        losses = compute_loss(score, pid, feat)
+        for i in range(len(losses)):
+            mloss[i] += losses[i].item()
+
+        acc = (score.max(1)[1] == pid).float().mean()
+        macc += acc.item()
+
+    mloss /= len(dataloader)
+    macc /= len(dataloader)
+    return mloss, macc
 
 
 def parse_opt():
@@ -86,6 +171,7 @@ def parse_opt():
     parser.add_argument("--pre-weights", type=str, default=pre_weights)
     parser.add_argument("--num-classes", type=int, default=1501)
     parser.add_argument("--img-size", type=int, default=[128, 64])
+    parser.add_argument("--batch-size", type=int, default=144)
     parser.add_argument("--start-epoch", type=int, default=0)
     parser.add_argument("--end-epoch", type=int, default=1000)
     parser.add_argument("--label-smoothing", type=float, default=0.1)

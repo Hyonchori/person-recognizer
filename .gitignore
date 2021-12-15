@@ -31,6 +31,7 @@ weights/*
 youtube_videos/*
 frames2videos/*
 yolov5/runs/*
+tracker/feature_extractor/inference/*
 !deep-efficient-person-reid/assets/*
 !data/hyps/*
 !data/images/zidane.jpg

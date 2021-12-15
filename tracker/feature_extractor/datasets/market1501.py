@@ -30,7 +30,7 @@ class MARKET1501Dataset(torch.utils.data.Dataset):
     def __getitem__(self, x):
         img_name = self.img_names[x]
         name_split = img_name.split("_")
-        pid = int(name_split[0])
+        pid = int(name_split[0]) - 1
         img_path = os.path.join(self.img_dir, img_name)
         img0 = cv2.imread(img_path)
 

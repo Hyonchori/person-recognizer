@@ -66,7 +66,7 @@ class Conv(torch.nn.Module):
         else:
             self.conv = torch.nn.Conv2d(
                 in_ch, out_ch, k, s, k // 2, 1, g, bias=False)
-        self.norm = torch.nn.BatchNorm2d(out_ch, 0.001, 0.01)
+        self.norm = torch.nn.BatchNorm2d(out_ch)
         self.silu = activation
 
     def forward(self, x):
