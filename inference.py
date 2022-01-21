@@ -3,6 +3,7 @@
 import argparse
 import sys
 import os
+import time
 import collections
 from pathlib import Path
 import warnings
@@ -227,7 +228,7 @@ def run(opt):
             # Visualize results
             if any(show_model.values()):
                 cv2.imshow(f"img{i}", imv)
-                cv2.waitKey(1)
+                cv2.waitKey(66)
 
             # Save results
             if save_vid:
@@ -288,12 +289,13 @@ def parse_opt():
 
     # General arguments
     source = "rtsp://datonai:datonai@172.30.1.49:554/stream1"
-    source = "/media/daton/D6A88B27A88B0569/dataset/mot/MOT17/train/MOT17-04-DPM/img1"
+    source = "/media/daton/Data/datasets/MOT17/train/MOT17-04-FRCNN/img1"
     #source = "https://www.youtube.com/watch?v=668J-hyfJ0E"
     #source = "https://www.youtube.com/watch?v=WRp0PoxQqoQ"
     #source = "/media/daton/D6A88B27A88B0569/dataset/화재_발생_예측_영상/Validation/[원천]화재씬2/S3-N0819MF06491.jpg"
     #source = "https://www.youtube.com/watch?v=kR5h18Jdcyc"
     #source = "0"
+    #source = "/home/daton/Downloads/daton_office_02-people_counting.mp4"
     parser.add_argument("--source", type=str, default=source)
     parser.add_argument("--device", default="")
     parser.add_argument("--dir-path", default="runs/inference")
@@ -305,11 +307,11 @@ def parse_opt():
     parser.add_argument("--hide-conf", type=bool, default=False)
     parser.add_argument("--use-model", type=dict,
                         default={"yolov5": True,
-                                 "deepsort": True,
+                                 "deepsort": False,
                                  "tracker": False})
     parser.add_argument("--show-model", type=dict,
                         default={"yolov5": True,
-                                 "deepsort": True,
+                                 "deepsort": False,
                                  "tracker": False})
 
     opt = parser.parse_args()
